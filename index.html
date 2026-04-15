@@ -3,602 +3,354 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Alpha Insight | 專業美股分析終端</title>
+    <title>美股全維度深度分析系統 (AI-Powered)</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        slate: {
+                            850: '#151e2e',
+                            900: '#0f172a',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700;900&display=swap');
-        body {
-            font-family: 'Noto Sans TC', sans-serif;
-            background-color: #0f172a; /* Slate 900 */
-            color: #f8fafc; /* Slate 50 */
-        }
-        /* Custom Scrollbar for inner content */
-        ::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
-        }
-        ::-webkit-scrollbar-track {
-            background: #1e293b;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #475569;
-            border-radius: 4px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: #64748b;
-        }
-        .glass-panel {
-            background: rgba(30, 41, 59, 0.7);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
+        /* Markdown 內容排版樣式優化 */
+        .prose h1, .prose h2, .prose h3 { color: #f8fafc; margin-top: 1.5em; margin-bottom: 0.5em; border-bottom: 1px solid #334155; padding-bottom: 0.3em; }
+        .prose p { margin-bottom: 1em; color: #cbd5e1; line-height: 1.7; }
+        .prose ul { list-style-type: disc; margin-left: 1.5em; margin-bottom: 1em; color: #cbd5e1; }
+        .prose li { margin-bottom: 0.25em; }
+        .prose strong { color: #38bdf8; font-weight: 600; }
+        .prose blockquote { border-left: 4px solid #3b82f6; padding-left: 1em; color: #94a3b8; font-style: italic; background: rgba(59, 130, 246, 0.1); padding: 0.5em 1em; border-radius: 0 0.25rem 0.25rem 0;}
+        .prose code { background: #1e293b; padding: 0.2em 0.4em; border-radius: 0.25em; color: #fb7185; }
+        
+        /* 評分條動畫 */
+        .score-bar { transition: width 1.5s cubic-bezier(0.4, 0, 0.2, 1); }
+        
+        /* 載入動畫 */
         .loader {
-            border: 4px solid #1e293b;
-            border-top: 4px solid #3b82f6; /* Blue 500 */
+            border: 3px solid #1e293b;
+            border-bottom-color: #38bdf8;
             border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
+            display: inline-block;
+            box-sizing: border-box;
+            animation: rotation 1s linear infinite;
         }
-        @keyframes spin {
+        @keyframes rotation {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
-        .score-bar-fill {
-            transition: width 1s ease-in-out;
-        }
     </style>
 </head>
-<body class="min-h-screen flex flex-col items-center pt-10 pb-20 px-4 sm:px-6 lg:px-8">
+<body class="bg-slate-900 text-slate-200 min-h-screen font-sans">
 
-    <!-- Header & Search -->
-    <div class="w-full max-w-7xl mx-auto mb-10 text-center">
-        <h1 class="text-4xl font-black mb-2 tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-emerald-400">
-            Alpha Insight
-        </h1>
-        <p class="text-slate-400 mb-8">專業機構級美股分析終端</p>
-        
-        <div class="max-w-xl mx-auto relative">
-            <input type="text" id="tickerInput" placeholder="輸入美股代號 (例如: AAPL, MSFT, NVDA)" 
-                   class="w-full bg-slate-800 text-white border border-slate-700 rounded-full py-4 pl-6 pr-32 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-lg uppercase tracking-wider placeholder-slate-500 shadow-lg">
-            <button id="analyzeBtn" class="absolute right-2 top-2 bottom-2 bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-6 rounded-full transition-colors duration-200 shadow-md">
-                深度分析
-            </button>
-        </div>
-    </div>
+    <div class="max-w-6xl mx-auto px-4 py-10">
+        <!-- Header -->
+        <header class="text-center mb-12">
+            <h1 class="text-4xl md:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-300 mb-4">
+                <i class="fa-solid fa-chart-line mr-3"></i>美股全維度深度分析系統
+            </h1>
+            <p class="text-slate-400 max-w-2xl mx-auto text-sm md:text-base">
+                基於 Morningstar 護城河、DuPont 杜邦分析、極壓測試與 DCF 估值模型的 AI 投研引擎。<br>
+                <span class="text-xs text-blue-400 mt-2 inline-block"><i class="fa-solid fa-shield-halved mr-1"></i> 已啟用：嚴格事實查核模式與防幻覺機制</span>
+            </p>
+        </header>
 
-    <!-- Loading State -->
-    <div id="loadingState" class="hidden flex-col items-center justify-center mt-20">
-        <div class="loader mb-4"></div>
-        <p class="text-slate-300 animate-pulse text-lg" id="loadingText">正在彙整財報數據與建立估值模型...</p>
-    </div>
-
-    <!-- Error State -->
-    <div id="errorState" class="hidden w-full max-w-3xl mx-auto mt-10 p-6 bg-red-900/30 border border-red-500/50 rounded-xl text-center">
-        <svg class="w-12 h-12 text-red-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
-        <p id="errorMsg" class="text-red-200 text-lg">發生錯誤，請稍後再試。</p>
-    </div>
-
-    <!-- Analysis Dashboard (Hidden initially) -->
-    <div id="dashboard" class="hidden w-full max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        <!-- Top Section: Summary & Score -->
-        <div class="col-span-1 lg:col-span-3 grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <!-- Summary -->
-            <div class="col-span-1 lg:col-span-2 glass-panel rounded-2xl p-6 shadow-xl">
-                <div class="flex items-center justify-between mb-4 border-b border-slate-700 pb-2">
-                    <h2 class="text-2xl font-bold flex items-center">
-                        <span id="displayTicker" class="text-blue-400 mr-3 text-3xl"></span> 
-                        綜合投資摘要
-                    </h2>
+        <!-- Input Section -->
+        <div class="bg-slate-800 p-6 md:p-8 rounded-2xl shadow-xl border border-slate-700 mb-10 max-w-2xl mx-auto relative overflow-hidden">
+            <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-cyan-400"></div>
+            <form id="analyzeForm" class="flex flex-col md:flex-row gap-4">
+                <div class="relative flex-grow">
+                    <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                        <i class="fa-solid fa-magnifying-glass text-slate-400"></i>
+                    </div>
+                    <input type="text" id="tickerInput" required placeholder="輸入美股代號 (如: AAPL, TSLA, NVDA)" 
+                           class="w-full bg-slate-900 border border-slate-600 text-white rounded-xl pl-12 pr-4 py-4 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent uppercase font-semibold tracking-wider transition-all">
                 </div>
-                <p id="summaryText" class="text-slate-300 leading-relaxed text-lg"></p>
-            </div>
-
-            <!-- 8-Dimension Score -->
-            <div class="col-span-1 glass-panel rounded-2xl p-6 shadow-xl flex flex-col">
-                <div class="text-center mb-6 border-b border-slate-700 pb-4">
-                    <p class="text-sm text-slate-400 uppercase tracking-widest mb-1">綜合推薦評分</p>
-                    <div class="text-5xl font-black" id="totalScore">--</div>
-                    <p class="text-xs text-slate-500 mt-1">(1=不建議, 100=必買)</p>
-                </div>
-                <div id="radarScores" class="flex-grow flex flex-col justify-between space-y-3">
-                    <!-- Score bars will be injected here -->
-                </div>
+                <button type="submit" id="submitBtn" class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 px-8 rounded-xl transition-colors duration-200 shadow-lg shadow-blue-500/30 flex items-center justify-center min-w-[140px]">
+                    <span>開始分析</span>
+                    <i class="fa-solid fa-arrow-right ml-2"></i>
+                </button>
+            </form>
+            <div id="errorBox" class="hidden mt-4 bg-red-900/50 border border-red-500 text-red-200 px-4 py-3 rounded-lg text-sm">
+                <i class="fa-solid fa-triangle-exclamation mr-2"></i><span id="errorMsg">發生錯誤。</span>
             </div>
         </div>
 
-        <!-- Detailed Sections Grid -->
-        
-        <!-- Valuation & Scenarios -->
-        <div class="col-span-1 lg:col-span-1 flex flex-col gap-6">
-            <div class="glass-panel rounded-2xl p-6 shadow-lg h-full">
-                <h3 class="text-xl font-bold mb-4 text-emerald-400 border-b border-emerald-900/50 pb-2">估值與情境預測</h3>
-                
-                <div class="mb-4">
-                    <h4 class="text-sm font-semibold text-slate-400 mb-1">絕對與相對估值</h4>
-                    <p class="text-sm text-slate-200 mb-2"><strong>相對:</strong> <span id="valRelative"></span></p>
-                    <p class="text-sm text-slate-200 mb-2"><strong>DCF:</strong> <span id="valDcf"></span></p>
-                    <p class="text-sm text-slate-200"><strong>安全邊際:</strong> <span id="valMargin"></span></p>
-                    <div class="mt-3 p-3 bg-slate-800 rounded border border-slate-700 text-sm font-mono text-emerald-300" id="valZones"></div>
-                </div>
-
-                <div class="space-y-3 mt-6">
-                    <h4 class="text-sm font-semibold text-slate-400">未來 24 個月目標價推演</h4>
-                    <div class="bg-emerald-900/20 p-3 rounded border border-emerald-800/50">
-                        <p class="font-bold text-emerald-400">Bull Case (樂觀): <span id="scBullTarget"></span></p>
-                        <p class="text-xs text-slate-300 mt-1" id="scBullAssump"></p>
-                    </div>
-                    <div class="bg-blue-900/20 p-3 rounded border border-blue-800/50">
-                        <p class="font-bold text-blue-400">Base Case (基準): <span id="scBaseTarget"></span></p>
-                        <p class="text-xs text-slate-300 mt-1" id="scBaseAssump"></p>
-                    </div>
-                    <div class="bg-red-900/20 p-3 rounded border border-red-800/50">
-                        <p class="font-bold text-red-400">Bear Case (悲觀): <span id="scBearTarget"></span></p>
-                        <p class="text-xs text-slate-300 mt-1" id="scBearAssump"></p>
-                    </div>
-                </div>
+        <!-- Loading State -->
+        <div id="loadingState" class="hidden flex-col items-center justify-center py-20">
+            <span class="loader w-16 h-16 mb-6"></span>
+            <h3 class="text-xl font-semibold text-blue-400 mb-2">正在構建投研報告...</h3>
+            <div class="text-slate-400 text-sm space-y-1 text-center">
+                <p class="animate-pulse">正在掃描最新財報與 13F 機構持倉...</p>
+                <p class="animate-pulse" style="animation-delay: 0.5s;">執行 Morningstar 護城河評估...</p>
+                <p class="animate-pulse" style="animation-delay: 1s;">計算 DCF 估值與極壓測試模型...</p>
             </div>
         </div>
 
-        <!-- Moat & Business -->
-        <div class="col-span-1 lg:col-span-2 flex flex-col gap-6">
-            <div class="glass-panel rounded-2xl p-6 shadow-lg">
-                <h3 class="text-xl font-bold mb-4 text-purple-400 border-b border-purple-900/50 pb-2">商業模式與競爭壁壘 (Economic Moat)</h3>
-                
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                    <div>
-                        <h4 class="text-sm font-semibold text-slate-400 mb-1">獲利結構與定價權</h4>
-                        <p class="text-sm text-slate-200 mb-2" id="bmRevenue"></p>
-                        <p class="text-sm text-slate-200" id="bmPricing"></p>
-                    </div>
-                    <div>
-                        <h4 class="text-sm font-semibold text-slate-400 mb-1">動態競爭 (五力模型)</h4>
-                        <p class="text-sm text-slate-200" id="caPorter"></p>
-                    </div>
-                </div>
-
-                <h4 class="text-sm font-semibold text-slate-400 mb-2">Morningstar 護城河維度評估</h4>
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
-                    <div class="bg-slate-800 p-3 rounded">
-                        <div class="flex justify-between items-center mb-1">
-                            <span class="font-bold text-purple-300">無形資產</span>
-                            <span class="bg-purple-900 text-purple-200 text-xs px-2 py-1 rounded" id="moatIntangibleScore"></span>
-                        </div>
-                        <p class="text-xs text-slate-300" id="moatIntangibleReason"></p>
-                    </div>
-                    <div class="bg-slate-800 p-3 rounded">
-                        <div class="flex justify-between items-center mb-1">
-                            <span class="font-bold text-purple-300">轉換成本</span>
-                            <span class="bg-purple-900 text-purple-200 text-xs px-2 py-1 rounded" id="moatSwitchingScore"></span>
-                        </div>
-                        <p class="text-xs text-slate-300" id="moatSwitchingReason"></p>
-                    </div>
-                    <div class="bg-slate-800 p-3 rounded">
-                        <div class="flex justify-between items-center mb-1">
-                            <span class="font-bold text-purple-300">網絡效應</span>
-                            <span class="bg-purple-900 text-purple-200 text-xs px-2 py-1 rounded" id="moatNetworkScore"></span>
-                        </div>
-                        <p class="text-xs text-slate-300" id="moatNetworkReason"></p>
-                    </div>
-                    <div class="bg-slate-800 p-3 rounded">
-                        <div class="flex justify-between items-center mb-1">
-                            <span class="font-bold text-purple-300">成本優勢</span>
-                            <span class="bg-purple-900 text-purple-200 text-xs px-2 py-1 rounded" id="moatCostScore"></span>
-                        </div>
-                        <p class="text-xs text-slate-300" id="moatCostReason"></p>
-                    </div>
-                </div>
-                
-                <div class="bg-slate-800/50 p-4 rounded-lg border border-slate-700">
-                    <p class="text-sm text-slate-200 mb-2"><strong>同業對比:</strong> <span id="moatComparison"></span></p>
-                    <p class="text-sm text-slate-200"><strong>5年結構優勢可持續性:</strong> <span id="moatSustainability"></span></p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Thesis, Earnings & Financials -->
-        <div class="col-span-1 lg:col-span-3 grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Results Section (Hidden by default) -->
+        <div id="resultsContainer" class="hidden space-y-8 animate-[fadeIn_0.5s_ease-in-out]">
             
-            <!-- Core Thesis -->
-            <div class="glass-panel rounded-2xl p-6 shadow-lg">
-                <h3 class="text-xl font-bold mb-4 text-orange-400 border-b border-orange-900/50 pb-2">成長股投資論點</h3>
-                <div class="space-y-4">
-                    <div>
-                        <h4 class="text-xs font-semibold text-slate-400 uppercase">核心預期差 (Variant Perception)</h4>
-                        <p class="text-sm text-slate-200 mt-1" id="thVariant"></p>
-                    </div>
-                    <div>
-                        <h4 class="text-xs font-semibold text-slate-400 uppercase">13F 機構籌碼</h4>
-                        <p class="text-sm text-slate-200 mt-1" id="thInst"></p>
-                    </div>
-                    <div>
-                        <h4 class="text-xs font-semibold text-slate-400 uppercase">6-12個月關鍵催化劑</h4>
-                        <p class="text-sm text-slate-200 mt-1" id="thCatalysts"></p>
-                    </div>
-                    <div class="bg-red-900/20 p-3 rounded border border-red-900/50">
-                        <h4 class="text-xs font-semibold text-red-400 uppercase">反面論點 (止損條件)</h4>
-                        <p class="text-sm text-red-200 mt-1" id="thInvalid"></p>
-                    </div>
-                </div>
+            <div class="flex items-center justify-between border-b border-slate-700 pb-4">
+                <h2 class="text-3xl font-bold flex items-center">
+                    <span id="resultTicker" class="text-blue-400 mr-3">AAPL</span> 分析摘要
+                </h2>
             </div>
 
-            <!-- Earnings Call -->
-            <div class="glass-panel rounded-2xl p-6 shadow-lg">
-                <h3 class="text-xl font-bold mb-4 text-cyan-400 border-b border-cyan-900/50 pb-2">最新財報拆解</h3>
-                <div class="space-y-4">
-                    <div>
-                        <h4 class="text-xs font-semibold text-slate-400 uppercase">數據對抗 (vs Consensus)</h4>
-                        <p class="text-sm text-slate-200 mt-1" id="ecBeatMiss"></p>
-                    </div>
-                    <div>
-                        <h4 class="text-xs font-semibold text-slate-400 uppercase">管理層潛台詞 (Guidance)</h4>
-                        <p class="text-sm text-slate-200 mt-1" id="ecTone"></p>
-                    </div>
-                    <div>
-                        <h4 class="text-xs font-semibold text-slate-400 uppercase">非財務指標異常</h4>
-                        <p class="text-sm text-slate-200 mt-1" id="ecNonFin"></p>
-                    </div>
-                    <div>
-                        <h4 class="text-xs font-semibold text-slate-400 uppercase">財報後市場情緒解析</h4>
-                        <p class="text-sm text-slate-200 mt-1" id="ecReaction"></p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Financial Evolution & Long Term -->
-            <div class="glass-panel rounded-2xl p-6 shadow-lg flex flex-col">
-                <h3 class="text-xl font-bold mb-4 text-yellow-400 border-b border-yellow-900/50 pb-2">5年財務基因與增長曲線</h3>
-                <div class="overflow-y-auto flex-grow pr-2 space-y-4">
-                    <div>
-                        <h4 class="text-xs font-semibold text-slate-400 uppercase">資本配置 & 獲利含金量</h4>
-                        <p class="text-sm text-slate-200 mt-1"><span id="feCapAlloc"></span> | <span id="feProfitQual"></span></p>
-                    </div>
-                    <div>
-                        <h4 class="text-xs font-semibold text-slate-400 uppercase">杜邦分析 (ROE 驅動)</h4>
-                        <p class="text-sm text-slate-200 mt-1" id="feDupont"></p>
-                    </div>
-                    <div class="border-t border-slate-700 my-2 pt-2"></div>
-                    <div>
-                        <h4 class="text-xs font-semibold text-slate-400 uppercase">TAM / 市佔率空間</h4>
-                        <p class="text-sm text-slate-200 mt-1" id="ltTam"></p>
-                    </div>
-                    <div>
-                        <h4 class="text-xs font-semibold text-slate-400 uppercase">技術轉化 & 第二曲線</h4>
-                        <p class="text-sm text-slate-200 mt-1"><span id="ltTech"></span> | <span id="ltSecond"></span></p>
-                    </div>
-                    <div>
-                        <h4 class="text-xs font-semibold text-slate-400 uppercase">單元經濟 (邊際成本)</h4>
-                        <p class="text-sm text-slate-200 mt-1" id="ltUnit"></p>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Stress Test & Risks (Full Width) -->
-        <div class="col-span-1 lg:col-span-3 glass-panel rounded-2xl p-6 shadow-lg">
-            <h3 class="text-xl font-bold mb-4 text-rose-400 border-b border-rose-900/50 pb-2">極壓測試與風險矩陣 (Stress Test)</h3>
-            
+            <!-- Top Dashboard: Summary & Scores -->
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <!-- Macro -->
-                <div>
-                    <h4 class="text-md font-bold text-slate-300 mb-3 flex items-center"><span class="w-2 h-2 rounded-full bg-rose-500 mr-2"></span>宏觀風險</h4>
-                    <div id="riskMacro" class="space-y-3"></div>
+                <!-- Summary Card -->
+                <div class="md:col-span-2 bg-slate-800 rounded-2xl p-6 border border-slate-700 shadow-lg">
+                    <h3 class="text-lg font-semibold text-white mb-3 flex items-center">
+                        <i class="fa-solid fa-book-open text-blue-400 mr-2"></i> 核心洞察 ( < 300字 )
+                    </h3>
+                    <p id="summaryText" class="text-slate-300 leading-relaxed text-justify"></p>
                 </div>
-                <!-- Micro -->
-                <div>
-                    <h4 class="text-md font-bold text-slate-300 mb-3 flex items-center"><span class="w-2 h-2 rounded-full bg-orange-500 mr-2"></span>微觀風險</h4>
-                    <div id="riskMicro" class="space-y-3"></div>
-                </div>
-                <!-- Tail -->
-                <div>
-                    <h4 class="text-md font-bold text-slate-300 mb-3 flex items-center"><span class="w-2 h-2 rounded-full bg-red-600 animate-pulse mr-2"></span>黑天鵝尾部風險</h4>
-                    <div id="riskTail" class="space-y-3"></div>
+
+                <!-- Scores Card -->
+                <div class="bg-slate-800 rounded-2xl p-6 border border-slate-700 shadow-lg flex flex-col justify-between">
+                    <h3 class="text-lg font-semibold text-white mb-4 flex items-center">
+                        <i class="fa-solid fa-chart-pie text-blue-400 mr-2"></i> 綜合評級 (1-10)
+                    </h3>
+                    
+                    <div class="space-y-5">
+                        <!-- Valuation Score -->
+                        <div>
+                            <div class="flex justify-between text-sm mb-1">
+                                <span class="text-slate-300">估值吸引力</span>
+                                <span id="scoreValText" class="font-bold text-blue-400">0/10</span>
+                            </div>
+                            <div class="w-full bg-slate-700 rounded-full h-2.5">
+                                <div id="scoreValBar" class="bg-gradient-to-r from-green-400 to-blue-500 h-2.5 rounded-full score-bar w-0"></div>
+                            </div>
+                        </div>
+                        
+                        <!-- Growth Score -->
+                        <div>
+                            <div class="flex justify-between text-sm mb-1">
+                                <span class="text-slate-300">增長潛力</span>
+                                <span id="scoreGroText" class="font-bold text-blue-400">0/10</span>
+                            </div>
+                            <div class="w-full bg-slate-700 rounded-full h-2.5">
+                                <div id="scoreGroBar" class="bg-gradient-to-r from-blue-400 to-purple-500 h-2.5 rounded-full score-bar w-0"></div>
+                            </div>
+                        </div>
+
+                        <!-- Risk Score -->
+                        <div>
+                            <div class="flex justify-between text-sm mb-1">
+                                <span class="text-slate-300">財務安全性 (分數越高越安全)</span>
+                                <span id="scoreRisText" class="font-bold text-blue-400">0/10</span>
+                            </div>
+                            <div class="w-full bg-slate-700 rounded-full h-2.5">
+                                <div id="scoreRisBar" class="bg-gradient-to-r from-red-400 to-yellow-400 h-2.5 rounded-full score-bar w-0"></div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
-        </div>
 
+            <!-- Detailed Report Markdown Container -->
+            <div class="bg-slate-850 rounded-2xl p-8 border border-slate-700 shadow-xl mt-8">
+                <div id="markdownReport" class="prose max-w-none text-slate-300">
+                    <!-- Markdown content injected here -->
+                </div>
+            </div>
+            
+        </div>
     </div>
 
     <script>
-        const API_KEY = ""; // Provided by execution environment
-        const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${API_KEY}`;
+        // API Key 設定為空，由執行環境提供
+        const apiKey = "";
+        
+        // 延遲函數，用於 Exponential Backoff
+        const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-        const DOM = {
-            input: document.getElementById('tickerInput'),
-            btn: document.getElementById('analyzeBtn'),
-            loading: document.getElementById('loadingState'),
-            loadingText: document.getElementById('loadingText'),
-            error: document.getElementById('errorState'),
-            errorMsg: document.getElementById('errorMsg'),
-            dashboard: document.getElementById('dashboard'),
-            // Elements to populate
-            displayTicker: document.getElementById('displayTicker'),
-            summaryText: document.getElementById('summaryText'),
-            totalScore: document.getElementById('totalScore'),
-            radarScores: document.getElementById('radarScores'),
-            
-            valRelative: document.getElementById('valRelative'), valDcf: document.getElementById('valDcf'), valMargin: document.getElementById('valMargin'), valZones: document.getElementById('valZones'),
-            scBullTarget: document.getElementById('scBullTarget'), scBullAssump: document.getElementById('scBullAssump'), scBaseTarget: document.getElementById('scBaseTarget'), scBaseAssump: document.getElementById('scBaseAssump'), scBearTarget: document.getElementById('scBearTarget'), scBearAssump: document.getElementById('scBearAssump'),
-            
-            bmRevenue: document.getElementById('bmRevenue'), bmPricing: document.getElementById('bmPricing'), caPorter: document.getElementById('caPorter'),
-            moatIntangibleScore: document.getElementById('moatIntangibleScore'), moatIntangibleReason: document.getElementById('moatIntangibleReason'), moatSwitchingScore: document.getElementById('moatSwitchingScore'), moatSwitchingReason: document.getElementById('moatSwitchingReason'), moatNetworkScore: document.getElementById('moatNetworkScore'), moatNetworkReason: document.getElementById('moatNetworkReason'), moatCostScore: document.getElementById('moatCostScore'), moatCostReason: document.getElementById('moatCostReason'), moatComparison: document.getElementById('moatComparison'), moatSustainability: document.getElementById('moatSustainability'),
-            
-            thVariant: document.getElementById('thVariant'), thInst: document.getElementById('thInst'), thCatalysts: document.getElementById('thCatalysts'), thInvalid: document.getElementById('thInvalid'),
-            ecBeatMiss: document.getElementById('ecBeatMiss'), ecTone: document.getElementById('ecTone'), ecNonFin: document.getElementById('ecNonFin'), ecReaction: document.getElementById('ecReaction'),
-            feCapAlloc: document.getElementById('feCapAlloc'), feProfitQual: document.getElementById('feProfitQual'), feDupont: document.getElementById('feDupont'),
-            ltTam: document.getElementById('ltTam'), ltTech: document.getElementById('ltTech'), ltSecond: document.getElementById('ltSecond'), ltUnit: document.getElementById('ltUnit'),
-            
-            riskMacro: document.getElementById('riskMacro'), riskMicro: document.getElementById('riskMicro'), riskTail: document.getElementById('riskTail')
-        };
+        // 帶有 Exponential Backoff 的 Fetch 函數
+        async function fetchWithRetry(url, options, maxRetries = 5) {
+            const delays = [1000, 2000, 4000, 8000, 16000];
+            for (let i = 0; i < maxRetries; i++) {
+                try {
+                    const response = await fetch(url, options);
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return await response.json();
+                } catch (error) {
+                    if (i === maxRetries - 1) throw error;
+                    await sleep(delays[i]);
+                }
+            }
+        }
 
-        const loadingTexts = [
-            "正在讀取最新 SEC 財報文件...",
-            "執行 Morningstar 護城河框架分析...",
-            "構建 DCF 現金流折現模型...",
-            "掃描 13F 機構籌碼變化...",
-            "進行極壓測試與風險排查..."
-        ];
-
-        let loadingInterval;
-
-        DOM.btn.addEventListener('click', handleAnalyze);
-        DOM.input.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') handleAnalyze();
-        });
-
-        async function handleAnalyze() {
-            const ticker = DOM.input.value.trim().toUpperCase();
+        document.getElementById('analyzeForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const ticker = document.getElementById('tickerInput').value.trim().toUpperCase();
             if (!ticker) return;
 
-            // Reset UI
-            DOM.dashboard.classList.add('hidden');
-            DOM.error.classList.add('hidden');
-            DOM.loading.classList.remove('hidden');
-            DOM.radarScores.innerHTML = '';
-            
-            let textIdx = 0;
-            DOM.loadingText.textContent = loadingTexts[0];
-            loadingInterval = setInterval(() => {
-                textIdx = (textIdx + 1) % loadingTexts.length;
-                DOM.loadingText.textContent = loadingTexts[textIdx];
-            }, 2000);
+            // UI 狀態切換
+            document.getElementById('resultsContainer').classList.add('hidden');
+            document.getElementById('errorBox').classList.add('hidden');
+            document.getElementById('loadingState').classList.remove('hidden');
+            document.getElementById('submitBtn').disabled = true;
+            document.getElementById('submitBtn').innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>';
 
             try {
-                const data = await fetchAnalysisWithRetry(ticker);
-                renderDashboard(ticker, data);
-            } catch (err) {
-                console.error(err);
-                showError("分析失敗，請確認代號是否正確或稍後再試。");
-            } finally {
-                clearInterval(loadingInterval);
-                DOM.loading.classList.add('hidden');
-            }
-        }
+                // 系統指令：融入使用者的「專家優化」與「內部事實查核」原則，並強制聯網驗證
+                const systemPrompt = `
+你是一名深耕 AI 領域與金融市場的「頂尖美股分析師與價值投資顧問」。
+【操作守則 - 內部事實查核與防幻覺程序】：
+1. 【強制聯網驗證】：你必須使用 Google Search 工具查詢該股票代號的最新資訊（包含最新一季財報、13F報告、近期重大新聞）。
+2. 【實體驗證】：在分析前，請先嚴格確認該股票代號是否為真實存在的「美股」上市公司。若查無此公司、代號已下市、屬於冷門粉紅單市場或非美股，請在 summary 與 reportMarkdown 欄位直接填寫：「【錯誤：查無此美股代號或公司資訊不足，請重新確認】」，並將評分皆設為 1。絕對嚴禁張冠李戴或憑空捏造。
+3. 【指定數據源 - Forecast】：在進行「估值建模與長線預測」時，你必須優先搜尋 "site:stockanalysis.com [股票代號] forecast" 來獲取未來 1 至 2 年的營收 (Revenue) 與每股盈餘 (EPS) 分析師預測數據。
+4. 【客觀評分錨定】：為了確保每次評分的一致性，你的 1-10 分必須嚴格基於客觀數據：
+    - 估值分數：若 P/E 處於歷史低分位或低於行業均值給高分，反之給低分。
+    - 增長分數：嚴格對照 StockAnalysis 的未來 1-2 年 EPS/營收年化成長率，高成長給高分。
+    - 風險分數：嚴格考量「利息保障倍數」與「自由現金流轉正與否」，財務越穩健給越接近 10 分。
+5. 【證據優先】：僅依據搜尋到的『確切已知』事實與最新財報數據回答，嚴禁使用『可能、應該、或許』等模糊推測。
+6. 【允許留白】：這非常重要——如果你的信心水準低於 90%，或缺乏最新具體資訊（如具體的 DCF 預估數字等），請在該欄位或段落直接輸出：「【資料不足，無法確認】」，切勿捏造數據。
+7. 【來源標註】：涉及具體數據、事件或指引，請註明推論邏輯或數據來源（如 "根據 Q3 財報" 或 "根據 StockAnalysis.com 預測"）。
+8. 語言：強制使用繁體中文 (zh-TW) 輸出。
+                `;
 
-        async function fetchAnalysisWithRetry(ticker, retries = 5) {
-            const systemPrompt = `
-                你是一位頂尖的華爾街「成長股價值投資」首席分析師。
-                請針對使用者輸入的美股代號，進行極度深度的財務與商業模型分析。
-                
-                【絕對約束條件】
-                1. 輸出格式必須是完全合法的 JSON，不要有任何 markdown 標記 (如 \`\`\`json)。
-                2. 語言必須是繁體中文 (zh-TW)。
-                3. 【內部事實查核-證據優先】：你已具備 Google Search 能力。請務必搜尋該公司「最新一季」的財報數據、Earnings Call 與近期新聞。僅依據搜尋到的確切事實回答。
-                4. 嚴禁數字幻覺：如果對某項具體數據（如具體營收、EPS、目標價、最新 P/E 等）搜尋不到最新確切資料，請強制在該 JSON 欄位輸出：「【資料不足，無法確認】」。絕對不可使用過時數據或猜測填補。
-                
-                【分析框架要求 - 映射至 JSON 結構】
-                請嚴格依照以下 JSON 結構輸出內容：
-                {
-                    "summary": "綜合分析(不多於300字，總結核心看多或看空理由)",
-                    "totalScore": 數字(1-100),
-                    "dimensions": [
-                        {"name": "估值吸引力", "score": 數字(1-100)},
-                        {"name": "增長潛力", "score": 數字(1-100)},
-                        {"name": "財務健康度", "score": 數字(1-100)},
-                        {"name": "護城河寬度", "score": 數字(1-100)},
-                        {"name": "盈利能力", "score": 數字(1-100)},
-                        {"name": "資本配置", "score": 數字(1-100)},
-                        {"name": "近期催化劑", "score": 數字(1-100)},
-                        {"name": "宏觀抗壓性", "score": 數字(1-100)}
-                    ],
-                    "businessModel": {"revenue": "拆解主要收入來源", "pricingPower": "定價權分析"},
-                    "porter": "利用五力模型評估護城河是在擴大還是縮小",
-                    "scenarios": {
-                        "bull": {"target": "預期價格", "assumptions": "核心假設"},
-                        "base": {"target": "預期價格", "assumptions": "核心假設"},
-                        "bear": {"target": "預期價格", "assumptions": "核心假設"}
-                    },
-                    "moat": {
-                        "intangible": {"score": 數字1-10, "reason": "品牌/專利/監管"},
-                        "switching": {"score": 數字1-10, "reason": "客戶流失率與黏性"},
-                        "network": {"score": 數字1-10, "reason": "用戶基數與平台價值"},
-                        "cost": {"score": 數字1-10, "reason": "規模效應或獨特資源"},
-                        "comparison": "與兩家主要競爭對手橫向對比",
-                        "sustainability": "判斷結構性優勢在未來5年是否具備可持續性"
-                    },
-                    "risks": {
-                        "macro": [{"risk": "風險描述", "prob": "高/中/低", "impact": "大/中/小", "indicator": "先行指標(如:10年期公債殖利率)"}],
-                        "micro": [{"risk": "風險描述", "prob": "高/中/低", "impact": "大/中/小", "indicator": "先行指標"}],
-                        "tail": [{"risk": "可能導致股價腰斬的黑天鵝事件", "prob": "極低", "impact": "毀滅性", "indicator": "先行指標"}]
-                    },
-                    "thesis": {
-                        "variantPerception": "市場目前的定價為何錯誤？",
-                        "institutional": "13F機構持倉趨勢",
-                        "catalysts": "未來6-12個月的具體觸發事件",
-                        "invalidation": "什麼情況下會承認判斷錯誤並止損？"
-                    },
-                    "earnings": {
-                        "beatMiss": "營收/EPS/毛利 vs Consensus 具體百分比",
-                        "tone": "管理層對 Guidance 的語氣變化",
-                        "nonFinancial": "庫存/訂閱數等異常變化",
-                        "reaction": "財報後股價反應的深層原因"
-                    },
-                    "financials": {
-                        "capitalAlloc": "FCF 主要用途(研發/股息/回購/還債)",
-                        "profitQuality": "營運現金流與淨利比例是否長期>1",
-                        "dupont": "ROE 增長來自利潤率、周轉率還是財務槓桿？"
-                    },
-                    "valuation": {
-                        "relative": "過去5年 P/E, P/S 等歷史分位點判斷",
-                        "dcf": "未來5年FCF增長率, WACC, 終值倍數假設與內在價值",
-                        "marginOfSafety": "目前股價較內在價值折價多少？",
-                        "zones": "[買入區間: $X以下] [合理: $X-$Y] [減持: $Y以上]"
-                    },
-                    "longTerm": {
-                        "tam": "潛在市場規模與市佔提升空間",
-                        "techCurve": "研發投入如何轉化為實際營收",
-                        "secondCurve": "是否有孵化中產品5年內貢獻>20%營收",
-                        "unitEconomics": "規模擴大邊際成本是否遞減"
+                // 用戶指令：詳細的分析框架
+                const userQuery = `
+請針對美股代號【${ticker}】進行深度分析，並嚴格依照以下 JSON Schema 輸出結構化資料。
+分析內容要求：
+1. 300字以內的綜合分析摘要。
+2. 給予3方面綜合評分（1為極差/不建議，10為極佳/必買）：估值、增長潛力、公司財務風險。
+3. 詳細的 Markdown 分析報告 (reportMarkdown)，必須包含以下所有標題與內容：
+
+## 一、 商業模式與動態競爭
+* **商業模式與獲利結構**：拆解主要收入來源，分析其定價權（Pricing Power）。
+* **動態競爭優勢**：利用 Porter’s Five Forces 模型評估護城河是擴大（Widening）還是縮小。
+
+## 二、 競爭壁壘（Economic Moat）
+採用 Morningstar 框架，針對以下維度給予 1-10 分定量評分並說明定性理由：
+* **無形資產**：品牌溢價能力、專利佈局、監管准入。
+* **轉換成本**：客戶流失率（Churn Rate）與黏性。
+* **網絡效應**：用戶基數增加如何提升平台價值。
+* **成本優勢**：規模效應或獨特資源。
+* **結構性優勢對比**：與 2 家主要競爭對手橫向對比，判斷未來 5 年可持續性。
+
+## 三、 最新財報拆解與財務質量
+* **數據對抗**：營收、EPS、毛利率與市場預期（Consensus）對比，指出具體 beat/miss 情況。
+* **財報潛台詞**：管理層電話會議對未來指引（Guidance）的語氣變化。
+* **非財務指標**：庫存周轉率、訂閱數或研發投入比的變化。
+* **市場情緒解析**：財報後股價反應的底層邏輯。
+* **財務基因演變 (過去5年)**：資本配置效率（FCF用途）、獲利含金量（營運現金流/淨利 > 1?）、槓桿結構。
+* **DuPont Analysis 結論**：ROE 增長來源是利潤率、周轉率還是財務槓桿？
+
+## 四、 成長股價值投資與極壓測試
+* **核心投資論點 (Variant Perception)**：市場目前的定價為何錯誤？
+* **籌碼面**：13F 報告中的機構持倉變動趨勢。
+* **關鍵催化劑**：未來 6-12 個月內觸發估值修復的具體事件。
+* **反面論點 (止損條件)**：何種情況下需承認判斷錯誤並果斷止損？
+* **極壓測試矩陣 (按發生機率與影響程度排序)**：宏觀風險、微觀風險、尾部風險（黑天鵝），並提供投資者應監測的「先行指標」。
+
+## 五、 估值建模與長線預測 (含 StockAnalysis 數據)
+* **未來 1-2 年預測 (Forecast)**：基於 stockanalysis.com 的分析師共識，列出未來 12-24 個月的營收與 EPS 增長預期。
+* **情境預測**：結合前述預測，建立 Base, Bull, Bear Case，給出未來 24 個月目標價及核心假設。
+* **相對估值**：過去 5 年 P/E, P/S, EV/EBITDA 分位點位置。
+* **絕對估值 (DCF)**：說明未來 5 年 FCF 增長率、WACC、終值倍數假設，計算內在價值。
+* **安全邊際與操作建議**：折價幅度，並給出「買入區間」、「合理價位」、「減持區間」。
+* **長期增長曲線**：TAM/SAM/SOM 量化、技術曲線轉化效率、潛在的第二增長曲線、單元經濟（邊際成本遞減）分析。
+`;
+
+                const payload = {
+                    contents: [{ parts: [{ text: userQuery }] }],
+                    systemInstruction: { parts: [{ text: systemPrompt }] },
+                    tools: [{ "google_search": {} }], // 啟用 Google Search 聯網查核
+                    generationConfig: {
+                        temperature: 0.2, // 關鍵更新：降低溫度，大幅提升每次評分與內容的一致性與可信度
+                        responseMimeType: "application/json",
+                        responseSchema: {
+                            type: "OBJECT",
+                            properties: {
+                                summary: { type: "STRING", description: "300字以內的綜合分析摘要" },
+                                scoreValuation: { type: "INTEGER", description: "估值吸引力評分 (1-10)" },
+                                scoreGrowth: { type: "INTEGER", description: "增長潛力評分 (1-10)" },
+                                scoreRisk: { type: "INTEGER", description: "財務安全性評分 (1-10，10代表最安全/極低風險)" },
+                                reportMarkdown: { type: "STRING", description: "包含所有分析維度的詳細 Markdown 格式報告" }
+                            },
+                            required: ["summary", "scoreValuation", "scoreGrowth", "scoreRisk", "reportMarkdown"]
+                        }
                     }
-                }
-            `;
+                };
 
-            const payload = {
-                contents: [{ parts: [{ text: `請分析美股代號：${ticker}。請務必使用 Google Search 查詢該公司最新的季度財報數據、最新的 13F 報告動態以及目前的估值指標，確保數據是最新的。` }] }],
-                systemInstruction: { parts: [{ text: systemPrompt }] },
-                generationConfig: {
-                    responseMimeType: "application/json"
-                },
-                tools: [{ "google_search": {} }]
-            };
-
-            let delay = 1000;
-            for (let i = 0; i < retries; i++) {
-                try {
-                    const response = await fetch(API_URL, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-                    
-                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-                    
-                    const result = await response.json();
-                    const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
-                    if (!text) throw new Error("Empty response");
-                    
-                    return JSON.parse(text);
-                } catch (e) {
-                    if (i === retries - 1) throw e;
-                    await new Promise(res => setTimeout(res, delay));
-                    delay *= 2;
-                }
-            }
-        }
-
-        function renderDashboard(ticker, data) {
-            DOM.displayTicker.textContent = ticker;
-            DOM.summaryText.textContent = data.summary;
-            DOM.totalScore.textContent = data.totalScore;
-            
-            // Render Radar Scores (as horizontal bars)
-            data.dimensions.forEach(dim => {
-                let colorClass = dim.score > 80 ? 'bg-emerald-500' : (dim.score > 60 ? 'bg-blue-500' : (dim.score > 40 ? 'bg-yellow-500' : 'bg-red-500'));
-                DOM.radarScores.innerHTML += `
-                    <div>
-                        <div class="flex justify-between text-xs mb-1">
-                            <span class="text-slate-300 font-medium">${dim.name}</span>
-                            <span class="text-white font-bold">${dim.score}</span>
-                        </div>
-                        <div class="w-full bg-slate-700 rounded-full h-1.5">
-                            <div class="${colorClass} h-1.5 rounded-full score-bar-fill" style="width: 0%"></div>
-                        </div>
-                    </div>
-                `;
-            });
-            
-            // Animate bars
-            setTimeout(() => {
-                const bars = document.querySelectorAll('.score-bar-fill');
-                data.dimensions.forEach((dim, idx) => {
-                    if(bars[idx]) bars[idx].style.width = `${dim.score}%`;
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+                
+                const data = await fetchWithRetry(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
                 });
-            }, 100);
 
-            // Populate text fields
-            setText(DOM.valRelative, data.valuation?.relative);
-            setText(DOM.valDcf, data.valuation?.dcf);
-            setText(DOM.valMargin, data.valuation?.marginOfSafety);
-            setText(DOM.valZones, data.valuation?.zones);
+                if (!data.candidates || data.candidates.length === 0) {
+                    throw new Error("無法生成分析報告，請稍後再試。");
+                }
+
+                const resultText = data.candidates[0].content.parts[0].text;
+                const resultJson = JSON.parse(resultText);
+
+                // 更新 UI 內容
+                document.getElementById('resultTicker').textContent = ticker;
+                document.getElementById('summaryText').textContent = resultJson.summary;
+                
+                // 動態設定評分條
+                setScore('scoreVal', resultJson.scoreValuation);
+                setScore('scoreGro', resultJson.scoreGrowth);
+                setScore('scoreRis', resultJson.scoreRisk); // 假設模型理解 10 = 好/安全
+
+                // 渲染 Markdown
+                const parsedHTML = marked.parse(resultJson.reportMarkdown);
+                document.getElementById('markdownReport').innerHTML = parsedHTML;
+
+                // 顯示結果
+                document.getElementById('loadingState').classList.add('hidden');
+                document.getElementById('resultsContainer').classList.remove('hidden');
+
+            } catch (error) {
+                console.error("Analysis Error:", error);
+                document.getElementById('loadingState').classList.add('hidden');
+                const errorBox = document.getElementById('errorBox');
+                document.getElementById('errorMsg').textContent = `分析失敗：${error.message} (請確認您的網路連線或 API 狀態)`;
+                errorBox.classList.remove('hidden');
+            } finally {
+                // 恢復按鈕狀態
+                document.getElementById('submitBtn').disabled = false;
+                document.getElementById('submitBtn').innerHTML = '<span>重新分析</span><i class="fa-solid fa-arrow-rotate-right ml-2"></i>';
+            }
+        });
+
+        // 設定評分動畫與數值
+        function setScore(prefix, score) {
+            // 確保分數在 1-10 之間
+            const validScore = Math.max(1, Math.min(10, parseInt(score) || 0));
+            document.getElementById(`${prefix}Text`).textContent = `${validScore}/10`;
             
-            setText(DOM.scBullTarget, data.scenarios?.bull?.target); setText(DOM.scBullAssump, data.scenarios?.bull?.assumptions);
-            setText(DOM.scBaseTarget, data.scenarios?.base?.target); setText(DOM.scBaseAssump, data.scenarios?.base?.assumptions);
-            setText(DOM.scBearTarget, data.scenarios?.bear?.target); setText(DOM.scBearAssump, data.scenarios?.bear?.assumptions);
-
-            setText(DOM.bmRevenue, data.businessModel?.revenue);
-            setText(DOM.bmPricing, data.businessModel?.pricingPower);
-            setText(DOM.caPorter, data.porter);
-
-            setText(DOM.moatIntangibleScore, data.moat?.intangible?.score); setText(DOM.moatIntangibleReason, data.moat?.intangible?.reason);
-            setText(DOM.moatSwitchingScore, data.moat?.switching?.score); setText(DOM.moatSwitchingReason, data.moat?.switching?.reason);
-            setText(DOM.moatNetworkScore, data.moat?.network?.score); setText(DOM.moatNetworkReason, data.moat?.network?.reason);
-            setText(DOM.moatCostScore, data.moat?.cost?.score); setText(DOM.moatCostReason, data.moat?.cost?.reason);
-            setText(DOM.moatComparison, data.moat?.comparison);
-            setText(DOM.moatSustainability, data.moat?.sustainability);
-
-            setText(DOM.thVariant, data.thesis?.variantPerception);
-            setText(DOM.thInst, data.thesis?.institutional);
-            setText(DOM.thCatalysts, data.thesis?.catalysts);
-            setText(DOM.thInvalid, data.thesis?.invalidation);
-
-            setText(DOM.ecBeatMiss, data.earnings?.beatMiss);
-            setText(DOM.ecTone, data.earnings?.tone);
-            setText(DOM.ecNonFin, data.earnings?.nonFinancial);
-            setText(DOM.ecReaction, data.earnings?.reaction);
-
-            setText(DOM.feCapAlloc, data.financials?.capitalAlloc);
-            setText(DOM.feProfitQual, data.financials?.profitQuality);
-            setText(DOM.feDupont, data.financials?.dupont);
-
-            setText(DOM.ltTam, data.longTerm?.tam);
-            setText(DOM.ltTech, data.longTerm?.techCurve);
-            setText(DOM.ltSecond, data.longTerm?.secondCurve);
-            setText(DOM.ltUnit, data.longTerm?.unitEconomics);
-
-            // Render Risks
-            renderRiskArray(DOM.riskMacro, data.risks?.macro);
-            renderRiskArray(DOM.riskMicro, data.risks?.micro);
-            renderRiskArray(DOM.riskTail, data.risks?.tail);
-
-            DOM.dashboard.classList.remove('hidden');
-        }
-
-        function setText(element, text) {
-            if (!element) return;
-            element.textContent = text || '【資料不足，無法確認】';
-            if(element.textContent === '【資料不足，無法確認】') {
-                element.classList.add('text-slate-500', 'italic');
-            } else {
-                element.classList.remove('text-slate-500', 'italic');
-            }
-        }
-
-        function renderRiskArray(container, risks) {
-            container.innerHTML = '';
-            if (!risks || !Array.isArray(risks) || risks.length === 0) {
-                container.innerHTML = '<p class="text-sm text-slate-500 italic">無顯著風險或資料不足</p>';
-                return;
-            }
-            risks.forEach(r => {
-                container.innerHTML += `
-                    <div class="bg-slate-800 p-3 rounded border border-slate-700/50">
-                        <p class="text-sm text-slate-200 font-semibold mb-1">${r.risk || '【資料不足，無法確認】'}</p>
-                        <div class="flex text-xs space-x-3 mb-2">
-                            <span class="text-slate-400">機率: <span class="text-white">${r.prob || '-'}</span></span>
-                            <span class="text-slate-400">影響: <span class="text-white">${r.impact || '-'}</span></span>
-                        </div>
-                        <p class="text-xs text-blue-300 bg-blue-900/20 inline-block px-2 py-1 rounded">
-                            指標: ${r.indicator || '【資料不足，無法確認】'}
-                        </p>
-                    </div>
-                `;
-            });
-        }
-
-        function showError(msg) {
-            DOM.errorMsg.textContent = msg;
-            DOM.error.classList.remove('hidden');
+            // 延遲一點點讓 CSS 動畫生效
+            setTimeout(() => {
+                document.getElementById(`${prefix}Bar`).style.width = `${(validScore / 10) * 100}%`;
+                
+                // 動態顏色 (可選，目前使用漸層背景，若要動態改變底色可在此調整)
+                const bar = document.getElementById(`${prefix}Bar`);
+                if(validScore <= 3) {
+                    bar.style.background = 'linear-gradient(to right, #f87171, #ef4444)';
+                } else if(validScore <= 7) {
+                    bar.style.background = 'linear-gradient(to right, #facc15, #eab308)';
+                } else {
+                    bar.style.background = 'linear-gradient(to right, #4ade80, #3b82f6)';
+                }
+            }, 100);
         }
     </script>
 </body>
